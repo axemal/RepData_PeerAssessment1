@@ -4,22 +4,82 @@ output:
   html_document:
     keep_md: true
 ---
-
+ 
 
 ## Loading and preprocessing the data
+Load activity.csv and replace NA with 0, check for content
 
-
+```{r}
+a <- read.csv("activity.csv" ) 
+a[is.na(a)] <- 0
+```
 
 ## What is mean total number of steps taken per day?
+Aggregate data by date, compute total number of steps for each day, take a mean of that list.
+```{r}
+agg <- aggregate(a$steps,by=list(date=a$date),sum)
+head(agg)
+means <- round(mean(agg[,2]))
+medians <- as.integer(median(agg[,2]))
+```
 
+Plot the histogram of number of steps per day
+```{r}
+hist(agg[,2],xlab='steps',ylab='days', main='Steps per day')
+```
 
+Mean total number of steps per day = `r means`  
+Median total number of steps per day = `r medians`
 
 ## What is the average daily activity pattern?
+```{r}
+agint <- aggregate(a$steps,by=list(interval=a$interval),mean)
+head(agint)
+tail(agint)
+plot(agint$interval,agint$x,type="l",xlab="time",ylab="steps")
+moststep <- agint$interval[which.max(agint$x)]
+```
 
+Most active interval is `r moststep`.
 
+## Imputing missing values, using previously computed mean for that interval
+```{r}
+b <- read.csv("activity.csv" ) 
+m <- is.na(b$steps)
+mc <- nrow(b)
+tm <- sum(m)
+for(i in (1:mc)) 
+  {
+    if(is.na(b$steps[i])) {
+      b$steps[i] <- agint$x[match(b$interval[i],agint$interval)]
+      }
+  }
+```
+Total missing values: `r tm` out of `r mc`.
 
-## Imputing missing values
+```{r}
+## histogram and mean/median for new dataset
+aggb <- aggregate(b$steps,by=list(date=b$date),sum)
+head(aggb)
+meansb <- as.integer(round(mean(aggb[,2])))
+mediansb <- as.integer(round(median(aggb[,2])))
 
+hist(aggb[,2],xlab='steps',ylab='days', main='Steps per day (with imputed data)')
+```
 
+After imputing the data:  
+Mean total number of steps per day = `r meansb`.
+Median total number of steps per day = `r mediansb`.
+
+We see that median remained the same (half of imputed values should be below median, half above - makes sense) while mean has grown (also makes sense as we use computed mean numbers instead of 0s).
 
 ## Are there differences in activity patterns between weekdays and weekends?
+Adding new factor
+```{r}
+a$DayOfWeekType <- ifelse(weekdays(as.Date(a$date)) %in% c('Saturday','Sunday'), 'Weekend', 'Weekday')
+agdayint <- aggregate(a$steps,by=list(interval=a$interval,day=a$DayOfWeekType),mean)
+head(agdayint)
+library(ggplot2)
+qplot(interval,x,data=agdayint,facets=day~.,geom='line',ylab='number of steps')
+```
+We can see a difference between weekdays and weekends - as people make fewer steps during weekend mornings - we can guess people sleep in longer on the weekends :)
